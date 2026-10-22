@@ -1,6 +1,13 @@
 # Android TV Makeover
 
-> **This fork is in active use on real hardware.** Full credit and thanks to
+> **This fork is in active use on real hardware, and is customized for one specific TV:**
+> **Xiaomi Mi TV 4A Pro (India)** — model `MiTV-AXSO2` (codename `dangalUHD`),
+> updated to Android 11 (API 30). The launcher builds and runs on any Android TV set
+> (that's the base project's job), but the changes here — the debloat profile, the
+> verified defaults, and the field notes — are specific to this model and were tested
+> only on it.
+>
+> Full credit and thanks to
 > **[@kulwantnagi](https://github.com/kulwantnagi)** for the original
 > [android-tv-makeover](https://github.com/kulwantnagi/android-tv-makeover) launcher this
 > fork builds on — the clean base, the deterministic D-pad navigation and the build tooling
@@ -15,6 +22,12 @@
 > - `custom-launcher-field-notes.md` — everything verified working on the actual TV,
 >   including the gotchas that cost the most time: **Play Protect silently hanging
 >   `adb install`, `hw.keyboard` on TV AVDs, and the API 30 TV image only existing as x86**.
+> - **Ready-to-install APK** for this model: see
+>   [Releases](https://github.com/CupiDroiD/android-tv-makeover/releases) — sideload it
+>   over USB/ADB and set it as HOME (a debug-signed build is provided until a release
+>   key is set up).
+> - Model-specific branding: applicationId `com.cupiDroiD.tvhome`, app name
+>   "CupiDroiD Home", social follower pills removed, greeting configurable.
 >
 > Everything below is the original project documentation, unchanged.
 
