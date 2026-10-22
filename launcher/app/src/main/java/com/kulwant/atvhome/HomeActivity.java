@@ -64,6 +64,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
     private FrameLayout root, content;
     private TextView greeting, clock, date, dockTitle, wifiText;
+    private LinearLayout topTexts;
     private LinearLayout pillRow;
     // follower counters under the pills: YouTube, Instagram, Facebook
     private static final String[] SOCIAL_KEYS = {"yt", "ig", "fb"};
@@ -97,6 +98,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     private int wpIdx, wpFront;
     private GlassBackdrop backdrop;
     private WallpaperVeil veil;
+    private android.graphics.RectF[] spotBase;
     private WallpaperPicker picker;
 
     // ---------------------------------------------------------------- lifecycle
@@ -327,7 +329,10 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
             veil = new WallpaperVeil(this, backdrop,
                     getResources().getInteger(R.integer.wallpaper_clear_top),
                     getResources().getInteger(R.integer.wallpaper_clear_bottom),
-                    getResources().getInteger(R.integer.wallpaper_blur_fade));
+                    getResources().getInteger(R.integer.wallpaper_blur_fade),
+                    getResources().getBoolean(R.bool.wallpaper_progressive),
+                    true,
+                    getResources().getInteger(R.integer.wallpaper_spot_feather));
             root.addView(veil, new FrameLayout.LayoutParams(-1, -1));
         }
 
@@ -364,7 +369,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         content.addView(highlight, new FrameLayout.LayoutParams(-1, -1));
 
         // greeting, clock, date
-        LinearLayout tl = new LinearLayout(this);
+        LinearLayout tl = topTexts = new LinearLayout(this);
         tl.setOrientation(LinearLayout.VERTICAL);
         greeting = Ui.text(this, 400, 16, 0x99FFFFFF);
         clock = Ui.text(this, 150, 78, 0xFFFFFFFF);
@@ -401,6 +406,10 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         plp.topMargin = dp(36);
         plp.rightMargin = side;
         content.addView(pillRow, plp);
+
+        // cache the spot-frost rects for the clock block and the pill row in screen coords;
+        // double-post so the first layout pass has measured them (same pattern as applyFocus)
+        if (veil != null) tl.post(() -> tl.post(this::ensureSpots));
 
         // follower counters, right-aligned under the pills (display only, never focused)
         socialIds[0] = getString(R.string.youtube_channel).trim();
@@ -627,6 +636,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         io.execute(() -> {
             if (backdrop != null) backdrop.rebuild();
             main.post(() -> {
+                ensureSpots();
                 if (highlight != null) highlight.invalidate();
                 if (veil != null) veil.refresh();
             });
@@ -829,6 +839,36 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
     // ---------------------------------------------------------------- focus rendering
 
+    /** Screen rect of a view, padded with the frost feather around it (see WallpaperVeil). */
+    private RectF frostRect(View v, int pad) {
+        int[] w = new int[2], r = new int[2];
+        v.getLocationInWindow(w);
+        veil.getLocationInWindow(r);
+        float x = w[0] - r[0], y = w[1] - r[1];
+        return new RectF(x - pad, y - pad, x + v.getWidth() + pad, y + v.getHeight() + pad);
+    }
+
+    /** Measure the frosted panels behind the clock block and the pill row, once laid out. */
+    private void ensureSpots() {
+        if (veil == null || spotBase != null || topTexts.getWidth() == 0) return;
+        RectF[] base = new RectF[2];
+        base[0] = frostRect(topTexts, dp(24));
+        base[1] = frostRect(pillRow, dp(16));
+        spotBase = base;
+        applySpotShift(0);
+    }
+
+    /** Spots live in screen coords; when the content scrolls they follow the same shift. */
+    private void applySpotShift(float shift) {
+        if (veil == null || spotBase == null) return;
+        RectF[] moved = new RectF[spotBase.length];
+        for (int i = 0; i < moved.length; i++) {
+            RectF s = spotBase[i];
+            moved[i] = new RectF(s.left, s.top - shift, s.right, s.bottom - shift);
+        }
+        veil.setSpots(moved);
+    }
+
     private void applyFocus(boolean animate) {
         prefs.edit().putInt("zone", zone.ordinal()).putInt("top", topIdx)
                 .putInt("dock", dockIdx).putInt("grid", gridIdx).apply();
@@ -849,6 +889,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         if (animate) content.animate().translationY(-shift).setDuration(380)
                 .setInterpolator(new DecelerateInterpolator(2f)).start();
         else content.setTranslationY(-shift);
+        applySpotShift(shift);
 
         // dock title + glow follow the dock selection
         if (dockAdapter.getItemCount() > 0 && dockIdx != lastTitleApp) {

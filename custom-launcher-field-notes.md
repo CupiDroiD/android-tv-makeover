@@ -42,9 +42,19 @@ band). All of it is XML-comment-safe (no `--` inside comments!) and configured i
   focus ring, live thumbnails of store + external photos). OK on a tile shows that
   wallpaper immediately (without waiting for the next rotation tick) and closes the
   picker; BACK/OK-outside closes without changing anything.
-- `WallpaperVeil` draws the coarse blur (the cached 1/8-scale bitmap `GlassBackdrop`
-  already builds) masked by keyed `LinearGradient`s through `DST_IN`, so the blur fades
-  smoothly instead of hard-cutting.
+- `WallpaperVeil` composites **two blur levels** (no RenderEffect available, so "more blur"
+  = downsampling further): a light layer (/8 bitmap) masked by the wide vertical ramp, plus
+  a heavy layer (the same texture downsampled again) masked to thin bands hugging the
+  screen edges, so the blur strengthens towards the edges instead of being one flat fade.
+  Ref: `wallpaper_progressive` (bool, default true).
+- **Spot frost:** feathered rounded panels of extra blur behind the clock/greeting block
+  and the pill row (measured once after layout, re-measured on every rebuild; they follow
+  the content scroll in the grid zone by the same shift). Config: `wallpaper_spot_feather`
+  (softness in dp, 0 disables). Gotchas paid for in testing: a `View.post` right after
+  building the UI runs before the first layout pass, so the first attempt measured 0-size
+  rects (the codebase's `tl.post(() -> tl.post(...))` double-post pattern is needed), and
+  identical spot rects arrive on every focus tick, so the veil skips re-composition below
+  a 1 px difference.
 - Refresh triggers verified: wallpaper cross-fade (veil follows the new image), app
   window focus (covers permission-grant relaunch), and MEDIA_MOUNTED broadcasts (USB
   stick with a `Wallpapers` folder shows up without a relaunch; insertion from shell
