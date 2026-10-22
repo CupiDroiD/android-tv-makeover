@@ -21,17 +21,17 @@
         <item>com.android.gallery3d</item>
     </string-array>
 
-    <!-- Name in the greeting ("Good evening, Sam"). Leave empty for no name. -->
-    <string name="greeting_name"></string>
+    <!-- Name in the greeting ("Good evening, CupiDroiD"). Leave empty for no name. -->
+    <string name="greeting_name">CupiDroiD</string>
 
     <!-- Follower counters under the top-right buttons, refreshed every 30 minutes while the home
          screen is open. Leave any of them empty to hide that counter. -->
     <!-- YouTube channel handle -->
-    <string name="youtube_channel">@AIWithKulwant</string>
+    <string name="youtube_channel"></string>
     <!-- Instagram username (instagram.com/<this>) -->
-    <string name="instagram_user">kulwantnagi</string>
+    <string name="instagram_user"></string>
     <!-- Facebook profile or page name (facebook.com/<this>) -->
-    <string name="facebook_page">kulwant.nagi</string>
+    <string name="facebook_page"></string>
 
     <!-- Wallpapers: 1280x720 images named wallpaper_1.jpg, wallpaper_2.jpg, ... in res/drawable-nodpi/.
          With more than one they fade from one to the next every wallpaper_seconds. false = pitch black. -->

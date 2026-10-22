@@ -7,7 +7,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.kulwant.atvhome'
+        applicationId 'com.cupiDroiD.tvhome'
         minSdk 28
         //noinspection ExpiredTargetSdkVersion  sideloaded TV launcher, matches the TV's API level
         targetSdk 28

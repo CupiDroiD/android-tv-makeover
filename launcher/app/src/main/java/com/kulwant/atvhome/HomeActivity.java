@@ -92,6 +92,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     private final List<Object> wallpapers = new ArrayList<>();
     private final ImageView[] wpViews = new ImageView[2];
     private int wpIdx, wpFront;
+    private GlassBackdrop backdrop;
 
     // ---------------------------------------------------------------- lifecycle
 
@@ -272,9 +273,11 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
                 wpViews[i].setAlpha(i == 0 ? 1f : 0f);
                 root.addView(wpViews[i], new FrameLayout.LayoutParams(-1, -1));
             }
+            if (backdrop == null) backdrop = new GlassBackdrop(wpViews);
             if (!wallpapers.isEmpty()) {
                 wpIdx = prefs.getInt("wallpaper", 0) % wallpapers.size();
                 wpViews[0].setImageBitmap(loadWallpaper(wallpapers.get(wpIdx)));
+                refreshGlass();
             }
             // darken: evenly, and more towards the bottom where the dock and grid sit
             View scrim = new View(this);
@@ -306,8 +309,12 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         band.setBackground(Ui.rounded(useWallpaper ? 0x8C141416 : 0xFF141416, dp(28), dp(1), 0x14FFFFFF));
         content.addView(band, at(W - 2 * side, bandH, side, bandTop));
 
-        // the single glass highlight (below tiles and pills)
+        // the single glass highlight (below tiles and pills); it samples the live wallpaper
+        // through a blur layer (see GlassBackdrop) — Android 9/11 has no RenderEffect
+        if (backdrop == null) backdrop = new GlassBackdrop(wpViews);
         highlight = new GlassHighlight(this);
+        highlight.setBackdrop(backdrop);
+        highlight.setSurface(W, H);
         highlight.setAlpha(0f);
         content.addView(highlight, new FrameLayout.LayoutParams(-1, -1));
 
@@ -495,6 +502,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         findWallpapers();
         if (wallpapers.isEmpty()) {
             for (ImageView v : wpViews) v.setImageDrawable(null);
+            backdrop.clear();
             return;
         }
         int at = added != null ? wallpapers.indexOf(added) : wallpapers.indexOf(current);
@@ -556,6 +564,16 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         main.postDelayed(nextWallpaper, secs * 1000L);
     }
 
+    /** Rebuilds the blur layer, then redraws the glass so it picks up the new backdrop. */
+    private void refreshGlass() {
+        io.execute(() -> {
+            if (backdrop != null) backdrop.rebuild();
+            main.post(() -> {
+                if (highlight != null) highlight.invalidate();
+            });
+        });
+    }
+
     /** Fades the next wallpaper in over the current one, then frees the old bitmap. */
     private final Runnable nextWallpaper = () -> {
         if (wallpapers.isEmpty()) return;
@@ -571,6 +589,9 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
                 back.animate().alpha(1f).setDuration(2000).start();
                 front.animate().alpha(0f).setDuration(2000).withEndAction(() -> front.setImageDrawable(null)).start();
                 wpFront = 1 - wpFront;
+                refreshGlass();
+                // once the cross-fade settles, sample the now-visible photo for the glass
+                main.postDelayed(this::refreshGlass, 2300);
                 if (hasWindowFocus()) scheduleWallpaper();
             });
         });
