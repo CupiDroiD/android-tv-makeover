@@ -16,6 +16,13 @@
 >   `GlassBackdrop` (a cached 1/8-scale blur layer of the live wallpaper, re-sampled on
 >   every cross-fade) + `GlassHighlight` (re-projects the blur under the focused card
 >   through a rounded clip, with body tint, sheen, specular edge and rim).
+> - **Prime-Video-style wallpaper veil + picker** (HUD v3): wallpapers stay sharp through
+>   the middle of the screen and progressively blur toward the top (pill row) and bottom
+>   (dock band) instead of being uniformly dimmed; a D-pad `Wallpaper` pill opens a
+>   picker that merges bundled/phone-pushed photos with photos from `wallpaper_dirs`
+>   (USB/sdcard "Wallpapers" folders, hot-scanned on mount), and OK on any tile shows it
+>   immediately. Geometry (blur bands, scrim colors, rotation seconds, pill visibility) is
+>   all configurable in `config.xml`.
 > - `profiles/xiaomi-mitv-axso2.txt` — reversible `pm disable-user` debloat profile for
 >   the Xiaomi Mi TV 4A Pro (India), tested: 23 packages disabled, launcher unaffected,
 >   stock fully restorable via `pm enable`.

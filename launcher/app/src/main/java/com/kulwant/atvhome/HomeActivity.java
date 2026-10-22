@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
@@ -48,7 +49,9 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
     private enum Zone { TOP, DOCK, GRID }
 
-    private static final int PILLS = 3;
+    private static final int PILLS = 4;
+    /** pills the top zone shows/config depends: 3, or 4 with the Wallpaper button */
+    private int pillCount;
     /** apps per row, dock and grid (config.xml: columns) */
     private int COLS;
 
@@ -88,11 +91,13 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     private int lastTitleApp = -1;
     private boolean titleChanging;
 
-    // rotating wallpapers: Files from the photo store (see Wallpapers)
+    // rotating wallpapers: Files from the photo store plus own folders (see Wallpapers)
     private final List<Object> wallpapers = new ArrayList<>();
     private final ImageView[] wpViews = new ImageView[2];
     private int wpIdx, wpFront;
     private GlassBackdrop backdrop;
+    private WallpaperVeil veil;
+    private WallpaperPicker picker;
 
     // ---------------------------------------------------------------- lifecycle
 
@@ -109,6 +114,14 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
         buildUi();
         setContentView(root);
+
+        // wallpapers from the configured folders and USB drives need storage read permission;
+        // the dialog appears once, after that /sdcard/Wallpapers and drives are scanned
+        String perm = android.Manifest.permission.READ_EXTERNAL_STORAGE;
+        if (checkSelfPermission(perm) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{perm}, 1);
+        }
+
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -128,6 +141,13 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         pk.addAction(Intent.ACTION_PACKAGE_REPLACED);
         pk.addDataScheme("package");
         registerReceiver(packageReceiver, pk);
+
+        IntentFilter media = new IntentFilter();
+        media.addAction(Intent.ACTION_MEDIA_MOUNTED);
+        media.addAction(Intent.ACTION_MEDIA_EJECT);
+        media.addAction(Intent.ACTION_MEDIA_UNMOUNTED);
+        media.addDataScheme("file");
+        registerReceiver(mediaReceiver, media);
 
         loadApps();
 
@@ -186,6 +206,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     protected void onDestroy() {
         unregisterReceiver(statusReceiver);
         unregisterReceiver(packageReceiver);
+        unregisterReceiver(mediaReceiver);
         Wallpapers.setListener(null);
         io.shutdownNow();
         super.onDestroy();
@@ -205,6 +226,14 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         @Override
         public void onReceive(Context c, Intent i) {
             loadApps();
+        }
+    };
+
+    /** A USB drive was plugged or unplugged: pick up wallpapers from it (see Wallpapers). */
+    private final BroadcastReceiver mediaReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            if (wpViews[0] != null) onWallpapersChanged(null);
         }
     };
 
@@ -279,11 +308,27 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
                 wpViews[0].setImageBitmap(loadWallpaper(wallpapers.get(wpIdx)));
                 refreshGlass();
             }
-            // darken: evenly, and more towards the bottom where the dock and grid sit
+            // darken: evenly, and more towards the bottom where the dock and grid sit; the
+            // middle stays light so the wallpaper photo is seen as a whole (config.xml)
+            int[] scrimColors = {0x59000000, 0x66000000, 0xD9000000};
+            try {
+                String[] c = getResources().getStringArray(R.array.wallpaper_scrim);
+                if (c.length >= 2) {
+                    int[] parsed = new int[c.length];
+                    for (int i = 0; i < c.length; i++) parsed[i] = android.graphics.Color.parseColor(c[i].trim());
+                    scrimColors = parsed;
+                }
+            } catch (Exception ignored) {
+            }
             View scrim = new View(this);
-            scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                    new int[]{0x59000000, 0x66000000, 0xD9000000}));
+            scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, scrimColors));
             root.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
+            // blur ramp over the top and bottom bands; the middle region shows the photo sharp
+            veil = new WallpaperVeil(this, backdrop,
+                    getResources().getInteger(R.integer.wallpaper_clear_top),
+                    getResources().getInteger(R.integer.wallpaper_clear_bottom),
+                    getResources().getInteger(R.integer.wallpaper_blur_fade));
+            root.addView(veil, new FrameLayout.LayoutParams(-1, -1));
         }
 
         content = new FrameLayout(this);
@@ -335,14 +380,19 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         tl.addView(date, dlp);
         content.addView(tl, at(W / 2, -2, side, dp(34)));
 
-        // pills: Inputs, Wi-Fi, Settings
+        // pills: Inputs, Wi-Fi, Settings (+ Wallpaper when enabled in config.xml)
         pillRow = new LinearLayout(this);
         pillRow.setOrientation(LinearLayout.HORIZONTAL);
         pills[0] = pill(R.drawable.ic_input, "Inputs");
         pills[1] = pill(R.drawable.ic_wifi, "Wi-Fi");
         wifiText = (TextView) ((ViewGroup) pills[1]).getChildAt(1);
         pills[2] = pill(R.drawable.ic_settings, null);
-        for (int i = 0; i < PILLS; i++) {
+        pillCount = 3;
+        if (getResources().getBoolean(R.bool.show_wallpaper_pill)) {
+            pills[3] = pill(R.drawable.ic_wallpaper, "Wallpaper");
+            pillCount = 4;
+        }
+        for (int i = 0; i < pillCount; i++) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(36));
             if (i > 0) lp.leftMargin = dp(10);
             pillRow.addView(pills[i], lp);
@@ -408,6 +458,10 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
         inputs = new InputsMenu(this);
         root.addView(inputs.panel);
+
+        picker = new WallpaperPicker(this);
+        picker.setExecutor(io);
+        root.addView(picker.panel, new FrameLayout.LayoutParams(-1, -1));
     }
 
     private FrameLayout.LayoutParams at(int w, int h, int x, int y) {
@@ -470,9 +524,13 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     // ---------------------------------------------------------------- wallpapers
 
     private boolean findWallpapers() {
-        // bundled wallpapers are copied into the photo store on first run (see Wallpapers)
+        // bundled wallpapers are copied into the photo store on first run (see Wallpapers);
+        // removing them via config keeps the phone-added photos and the own folders' ones
         wallpapers.clear();
-        wallpapers.addAll(Wallpapers.userPhotos(this));
+        boolean keepBundled = getResources().getBoolean(R.bool.use_bundled_wallpapers);
+        if (keepBundled) wallpapers.addAll(Wallpapers.userPhotos(this));
+        else wallpapers.addAll(Wallpapers.userPhotos(this, false));
+        wallpapers.addAll(Wallpapers.externalPhotos(this));
         return !wallpapers.isEmpty();
     }
 
@@ -564,26 +622,31 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         main.postDelayed(nextWallpaper, secs * 1000L);
     }
 
-    /** Rebuilds the blur layer, then redraws the glass so it picks up the new backdrop. */
+    /** Rebuilds the blur layer, then redraws the glass and the blur-veil over the wallpaper. */
     private void refreshGlass() {
         io.execute(() -> {
             if (backdrop != null) backdrop.rebuild();
             main.post(() -> {
                 if (highlight != null) highlight.invalidate();
+                if (veil != null) veil.refresh();
             });
         });
     }
 
-    /** Fades the next wallpaper in over the current one, then frees the old bitmap. */
-    private final Runnable nextWallpaper = () -> {
+    /** Crossfades the photo at idx in over the current one, then frees the old bitmap. */
+    private void showWallpaperNow(int idx) {
         if (wallpapers.isEmpty()) return;
-        wpIdx = (wpIdx + 1) % wallpapers.size();
-        prefs.edit().putInt("wallpaper", wpIdx).apply();
-        Object src = wallpapers.get(wpIdx);
+        int n = ((idx % wallpapers.size()) + wallpapers.size()) % wallpapers.size();
+        wpIdx = n;
+        prefs.edit().putInt("wallpaper", n).apply();
+        Object src = wallpapers.get(n);
         io.execute(() -> {
             android.graphics.Bitmap bmp = loadWallpaper(src);
-            if (bmp == null) return;
             main.post(() -> {
+                if (bmp == null) {   // unreadable file: try the next one, at the usual pace
+                    if (hasWindowFocus()) scheduleWallpaper();
+                    return;
+                }
                 ImageView front = wpViews[wpFront], back = wpViews[1 - wpFront];
                 back.setImageBitmap(bmp);
                 back.animate().alpha(1f).setDuration(2000).start();
@@ -595,7 +658,15 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
                 if (hasWindowFocus()) scheduleWallpaper();
             });
         });
-    };
+    }
+
+    /** The picker picked a photo: put it on screen right away. */
+    private void showPickedWallpaper(int index) {
+        main.removeCallbacks(nextWallpaper);
+        showWallpaperNow(index);
+    }
+
+    private final Runnable nextWallpaper = () -> showWallpaperNow(wpIdx + 1);
 
     @SuppressWarnings("deprecation")
     private void updateWifi() {
@@ -644,6 +715,15 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
         boolean select = k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER
                 || k == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        if (picker.isOpen()) {
+            if (k == KeyEvent.KEYCODE_DPAD_UP) picker.move(-COLS);
+            else if (k == KeyEvent.KEYCODE_DPAD_DOWN) picker.move(COLS);
+            else if (k == KeyEvent.KEYCODE_DPAD_LEFT) picker.move(-1);
+            else if (k == KeyEvent.KEYCODE_DPAD_RIGHT) picker.move(1);
+            else if (select && e.getRepeatCount() == 0) picker.choose();
+            else picker.close();   // back
+            return true;
+        }
         if (inputs.isOpen()) {
             if (k == KeyEvent.KEYCODE_DPAD_UP) inputs.move(-1);
             else if (k == KeyEvent.KEYCODE_DPAD_DOWN) inputs.move(1);
@@ -712,7 +792,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     }
 
     private void right() {
-        if (zone == Zone.TOP && topIdx < PILLS - 1) topIdx++;
+        if (zone == Zone.TOP && topIdx < pillCount - 1) topIdx++;
         else if (zone == Zone.DOCK && dockIdx < dockAdapter.getItemCount() - 1) dockIdx++;
         else if (zone == Zone.GRID && gridIdx % COLS < COLS - 1 && gridIdx + 1 < gridAdapter.getItemCount()) gridIdx++;
         else return;
@@ -727,6 +807,8 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
                 inputs.open(loc[0], loc[1] + pills[0].getHeight() + dp(8));
             } else if (topIdx == 1) {
                 launch(new Intent(Settings.ACTION_WIFI_SETTINGS));
+            } else if (topIdx == 3) {
+                picker.open(wallpapers, this::showPickedWallpaper);
             } else {
                 launch(new Intent(Settings.ACTION_SETTINGS));
             }
@@ -753,7 +835,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
         dockAdapter.setFocused(dockRv, zone == Zone.DOCK ? dockIdx : -1);
         gridAdapter.setFocused(gridRv, zone == Zone.GRID ? gridIdx : -1);
-        for (int i = 0; i < PILLS; i++) {
+        for (int i = 0; i < pillCount; i++) {
             float a = zone == Zone.TOP && i == topIdx ? 1f : 0.8f;
             pills[i].animate().alpha(a).setDuration(150).start();
         }

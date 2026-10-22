@@ -21,6 +21,36 @@ an emulator.
   blanked the social-follower pills, renamed the applicationId and app label, set the
   greeting name, shipped 4 own 1280x720 wallpaper JPEGs in `res/drawable-nodpi/`.
 
+## The wallpaper veil + picker (HUD v3, verified on Android 11)
+The base repo dims wallpapers uniformly with four scrim rectangles. This fork adds a
+Prime-Video-style veil instead: the wallpaper stays sharp across the middle of the
+screen and progressively blurs toward the top (the pill row) and the bottom (the dock
+band). All of it is XML-comment-safe (no `--` inside comments!) and configured in
+`app/src/main/res/values/config.xml`:
+
+- `use_wallpaper` (bool) / `wallpaper_seconds` (rotation interval) / `use_bundled_wallpapers`.
+- `wallpaper_dirs` string-array + `externalPhotos()` scans those absolute paths plus all
+  mounted USB roots found under `/storage/*` at mount time (jpg/jpeg/png/webp,
+  alphabetical, capped). `READ_EXTERNAL_STORAGE` is requested at runtime; photos only
+  show after the grant.
+- `wallpaper_clear_top` / `wallpaper_clear_bottom` / `wallpaper_blur_fade` (per-mille of
+  screen height: defaults 300/640/140 — the clear zone is scaled 0.30–0.64 of the screen
+  height with a 0.14 fade band on each edge).
+- `wallpaper_scrim` (colors, kept as a soft second layer over the fade bands).
+- `show_wallpaper_pill`: adds a fourth `Wallpaper` pill next to Settings with a new
+  `ic_wallpaper` icon. OK opens `WallpaperPicker`, a D-pad chooser (6-column grid, white
+  focus ring, live thumbnails of store + external photos). OK on a tile shows that
+  wallpaper immediately (without waiting for the next rotation tick) and closes the
+  picker; BACK/OK-outside closes without changing anything.
+- `WallpaperVeil` draws the coarse blur (the cached 1/8-scale bitmap `GlassBackdrop`
+  already builds) masked by keyed `LinearGradient`s through `DST_IN`, so the blur fades
+  smoothly instead of hard-cutting.
+- Refresh triggers verified: wallpaper cross-fade (veil follows the new image), app
+  window focus (covers permission-grant relaunch), and MEDIA_MOUNTED broadcasts (USB
+  stick with a `Wallpapers` folder shows up without a relaunch; insertion from shell
+  can't be simulated for security reasons, so the receiver path is validated by code
+  review + manual focus events).
+
 ## Build notes (Windows)
 - JDK 17 (Temurin) + Gradle 8.9 / AGP 8.5.2; Android Studio's bundled JBR (25) is too new
   for Gradle 8.9. `compileSdk 34` auto-installs the platform on first build.

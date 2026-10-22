@@ -40,30 +40,72 @@ final class Wallpapers {
         return d;
     }
 
-    /** Oldest first. */
+    /** Oldest first. Photos can be excluded (see seed/userPhotos for the bundled sub-set). */
     static synchronized List<File> userPhotos(Context c) {
+        return userPhotos(c, true);
+    }
+
+    static synchronized List<File> userPhotos(Context c, boolean includeBundled) {
         seed(c);
         File[] fs = dir(c).listFiles((d, n) -> n.matches("\\d+\\.jpg"));
         List<File> out = new ArrayList<>();
         if (fs == null) return out;
         Arrays.sort(fs, (a, b) -> a.getName().compareTo(b.getName()));
+        if (!includeBundled) {
+            android.content.SharedPreferences p = c.getSharedPreferences("wallpapers", Context.MODE_PRIVATE);
+            java.util.Set<String> bundled = p.getStringSet("bundled", null);
+            if (bundled != null) {
+                for (File f : fs) if (!bundled.contains(f.getName().replace(".jpg", ""))) out.add(f);
+                return out;
+            }
+            // pre-existing installation seeded before bundled ids were tracked: keep everything
+        }
         out.addAll(Arrays.asList(fs));
         return out;
+    }
+
+    /** Own images from the configured folders (config.xml: wallpaper_dirs) and USB drives. */
+    static synchronized List<File> externalPhotos(Context c) {
+        List<File> out = new ArrayList<>();
+        for (String dir : c.getResources().getStringArray(R.array.wallpaper_dirs)) {
+            addImages(out, new File(dir));
+        }
+        // USB sticks mount as /storage/XXXX-XXXX; their Wallpapers folder is picked up too
+        String[] roots = new File("/storage").list();
+        if (roots != null) {
+            for (String root : roots) {
+                if (!root.matches("[0-9a-fA-F]{4}-[0-9a-fA-F]{4}")) continue;
+                File wall = new File("/storage/" + root + "/Wallpapers");
+                if (wall.isDirectory()) addImages(out, wall);
+            }
+        }
+        return out;
+    }
+
+    private static void addImages(List<File> out, File d) {
+        if (!d.isDirectory()) return;
+        File[] fs = d.listFiles((f, n) -> n.matches("(?i).*\\.(jpe?g|png|webp)$"));
+        if (fs == null) return;
+        Arrays.sort(fs, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        for (File f : fs) if (out.size() < 4 * MAX_PHOTOS) out.add(f);
     }
 
     private static void seed(Context c) {
         android.content.SharedPreferences p = c.getSharedPreferences("wallpapers", Context.MODE_PRIVATE);
         if (p.getBoolean("seeded", false)) return;
         long base = System.currentTimeMillis();
+        java.util.Set<String> bundled = new java.util.HashSet<>();
         for (int i = 1; i <= 20; i++) {
             int res = c.getResources().getIdentifier("wallpaper_" + i, "drawable", c.getPackageName());
             if (res == 0) continue;
-            copy(c, res, new File(dir(c), (base + i) + ".jpg"));
+            String id = (base + i) + "";
+            copy(c, res, new File(dir(c), id + ".jpg"));
+            bundled.add(id);
             // optional full photo behind the crop (wallpaper_N_o.jpg), for re-framing on the phone
             int orig = c.getResources().getIdentifier("wallpaper_" + i + "_o", "drawable", c.getPackageName());
             if (orig != 0) copy(c, orig, new File(dir(c), (base + i) + "_o.jpg"));
         }
-        p.edit().putBoolean("seeded", true).apply();
+        p.edit().putBoolean("seeded", true).putStringSet("bundled", bundled).apply();
     }
 
     private static void copy(Context c, int res, File to) {

@@ -33,8 +33,44 @@
     <!-- Facebook profile or page name (facebook.com/<this>) -->
     <string name="facebook_page"></string>
 
-    <!-- Wallpapers: 1280x720 images named wallpaper_1.jpg, wallpaper_2.jpg, ... in res/drawable-nodpi/.
-         With more than one they fade from one to the next every wallpaper_seconds. false = pitch black. -->
+    <!-- Wallpaper sources: bundled 1280x720 jpgs (res/drawable-nodpi/wallpaper_1.jpg, ...),
+         photos pushed from the phone page, and images in the folders listed further down.
+         With more than one photo they fade from one to the next every wallpaper_seconds.
+         use_wallpaper false = pitch black. -->
     <bool name="use_wallpaper">true</bool>
     <integer name="wallpaper_seconds">30</integer>
+
+    <!-- Keep the bundled wallpapers in the rotation. false removes them (photos pushed from the
+         phone stay). Only affects installations where the bundled photos were copied in the first
+         place (first run with this flag true). -->
+    <bool name="use_bundled_wallpapers">true</bool>
+
+    <!-- Extra folders with your own images, scanned alphabetically and appended after the
+         bundled/tracked photos. /sdcard/Wallpapers works over USB (MTP: Internal storage /
+         Wallpapers) and adb push. Supported types: jpg, jpeg, png, webp. -->
+    <string-array name="wallpaper_dirs">
+        <item>/sdcard/Wallpapers</item>
+    </string-array>
+
+    <!-- Top-right "Wallpaper" button that opens a remote-friendly picker (D-pad: choose photo,
+         OK shows it now, BACK closes). false hides the button. -->
+    <bool name="show_wallpaper_pill">true</bool>
+
+    <!-- The big sharp region: the wallpaper photo is fully visible between the blurred top band
+         (down the buttons) and the blurred bottom band (up to the dock row). The two numbers
+         mark where the sharp region starts/ends, as per-mille of the screen height; the blur
+         ramps from the screen edges down/up over blur_fade /1000 of the height. -->
+    <integer name="wallpaper_clear_top">300</integer>
+    <integer name="wallpaper_clear_bottom">640</integer>
+    <integer name="wallpaper_blur_fade">140</integer>
+
+    <!-- Darkness over the wallpaper photo, top to bottom: dark enough for the buttons, light in
+         the clear region, dark over the dock row. Any number of "#RRGGBB..." colors works; a
+         missing or unparsable array falls back to the defaults below. -->
+    <string-array name="wallpaper_scrim" translatable="false">
+        <item>#8C000000</item>
+        <item>#26000000</item>
+        <item>#73000000</item>
+        <item>#E6000000</item>
+    </string-array>
 </resources>
