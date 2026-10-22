@@ -1,6 +1,10 @@
 # Android TV Makeover
 
-> **This fork is in active use on real hardware.** Additions so far:
+> **This fork is in active use on real hardware.** Full credit and thanks to
+> **[@kulwantnagi](https://github.com/kulwantnagi)** for the original
+> [android-tv-makeover](https://github.com/kulwantnagi/android-tv-makeover) launcher this
+> fork builds on — the clean base, the deterministic D-pad navigation and the build tooling
+> made it a very easy starting point. Additions so far:
 > - **Liquid-glass focus system that works on Android 9/11** (no `RenderEffect`):
 >   `GlassBackdrop` (a cached 1/8-scale blur layer of the live wallpaper, re-sampled on
 >   every cross-fade) + `GlassHighlight` (re-projects the blur under the focused card
