@@ -1,5 +1,19 @@
 # Android TV Makeover
 
+> **This fork is in active use on real hardware.** Additions so far:
+> - **Liquid-glass focus system that works on Android 9/11** (no `RenderEffect`):
+>   `GlassBackdrop` (a cached 1/8-scale blur layer of the live wallpaper, re-sampled on
+>   every cross-fade) + `GlassHighlight` (re-projects the blur under the focused card
+>   through a rounded clip, with body tint, sheen, specular edge and rim).
+> - `profiles/xiaomi-mitv-axso2.txt` — reversible `pm disable-user` debloat profile for
+>   the Xiaomi Mi TV 4A Pro (India), tested: 23 packages disabled, launcher unaffected,
+>   stock fully restorable via `pm enable`.
+> - `custom-launcher-field-notes.md` — everything verified working on the actual TV,
+>   including the gotchas that cost the most time: **Play Protect silently hanging
+>   `adb install`, `hw.keyboard` on TV AVDs, and the API 30 TV image only existing as x86**.
+>
+> Everything below is the original project documentation, unchanged.
+
 Debloat an Android TV over Wi-Fi, replace its ad-filled home screen with a clean Apple TV style
 launcher, control it from your phone, and add a fast live TV app for Indian channels. Everything is
 reversible.
