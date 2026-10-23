@@ -6,6 +6,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- re-enable our HOME + start the watchdog on every boot, even if the launcher was never opened -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- the "Allow this phone?" prompt shows over other apps; granted by build_and_install.sh -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -15,6 +17,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <application
+        android:name=".AtvHomeApplication"
         android:label="@string/app_name"
         android:icon="@android:drawable/sym_def_app_icon"
         android:allowBackup="false"
@@ -37,9 +40,28 @@
         </activity>
 
         <service android:name=".PhoneService" android:exported="false" />
+        <service android:name=".WatchdogService" android:process=":watchdog" android:exported="false" />
+        <activity
+            android:name=".LauncherSettingsActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|orientation|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
         <receiver android:name=".PhoneStarter" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".BootReceiver" android:process=":watchdog" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
     </application>

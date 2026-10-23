@@ -13,7 +13,6 @@ import android.graphics.drawable.Drawable;
 
 import java.text.Collator;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -46,11 +45,10 @@ final class AppRepo {
         collect(pm, byPkg, Intent.CATEGORY_LEANBACK_LAUNCHER, true);
         collect(pm, byPkg, Intent.CATEGORY_LAUNCHER, false);
         byPkg.remove(c.getPackageName());
-        Set<String> hidden = new HashSet<>(Arrays.asList(
-                c.getResources().getStringArray(R.array.hidden_packages)));
+        Set<String> hidden = new HashSet<>(Prefs.hiddenPackages(c));
 
         Result r = new Result();
-        for (String pkg : c.getResources().getStringArray(R.array.dock_packages)) {
+        for (String pkg : Prefs.dockPackages(c)) {
             App a = byPkg.remove(pkg);
             if (a != null) r.dock.add(a);
         }

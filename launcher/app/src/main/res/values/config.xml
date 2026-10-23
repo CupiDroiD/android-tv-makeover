@@ -38,7 +38,7 @@
          With more than one photo they fade from one to the next every wallpaper_seconds.
          use_wallpaper false = pitch black. -->
     <bool name="use_wallpaper">true</bool>
-    <integer name="wallpaper_seconds">30</integer>
+    <integer name="wallpaper_seconds">86400</integer>
 
     <!-- Keep the bundled wallpapers in the rotation. false removes them (photos pushed from the
          phone stay). Only affects installations where the bundled photos were copied in the first
@@ -56,26 +56,10 @@
          OK shows it now, BACK closes). false hides the button. -->
     <bool name="show_wallpaper_pill">true</bool>
 
-    <!-- The big sharp region: the wallpaper photo is fully visible between the blurred top band
-         (down the buttons) and the blurred bottom band (up to the dock row). The two numbers
-         mark where the sharp region starts/ends, as per-mille of the screen height; the blur
-         ramps from the screen edges down/up over blur_fade /1000 of the height. -->
-    <integer name="wallpaper_clear_top">300</integer>
-    <integer name="wallpaper_clear_bottom">640</integer>
-    <integer name="wallpaper_blur_fade">140</integer>
-
-    <!-- Progressive blur: an extra-heavy blur layer hugs the very top and bottom edges so the
-         ramp strengthens towards the edges instead of being one flat fade. -->
-    <bool name="wallpaper_progressive">true</bool>
-
-    <!-- Frosted spots: feathered rounded panels of blur behind the clock/greeting block and the
-         pill row, so text stays readable even when the sharp region passes under it. The
-         feather is the softness of the panel edge, in dp. 0 disables the spots. -->
-    <integer name="wallpaper_spot_feather">44</integer>
-
     <!-- Darkness over the wallpaper photo, top to bottom: dark enough for the buttons, light in
-         the clear region, dark over the dock row. Any number of "#RRGGBB..." colors works; a
-         missing or unparsable array falls back to the defaults below. -->
+         the middle where the photo shows through, darker over the dock row. Any number of
+         "#RRGGBB..." colors works; a missing or unparsable array falls back to the defaults
+         below. -->
     <string-array name="wallpaper_scrim" translatable="false">
         <item>#8C000000</item>
         <item>#26000000</item>

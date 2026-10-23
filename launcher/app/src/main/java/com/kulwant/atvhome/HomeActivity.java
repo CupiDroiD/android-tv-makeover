@@ -97,8 +97,6 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     private final ImageView[] wpViews = new ImageView[2];
     private int wpIdx, wpFront;
     private GlassBackdrop backdrop;
-    private WallpaperVeil veil;
-    private android.graphics.RectF[] spotBase;
     private WallpaperPicker picker;
 
     // ---------------------------------------------------------------- lifecycle
@@ -107,7 +105,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences("home", MODE_PRIVATE);
-        COLS = Math.max(3, Math.min(6, getResources().getInteger(R.integer.columns)));
+        COLS = Prefs.columns(this);
         zone = Zone.values()[prefs.getInt("zone", Zone.DOCK.ordinal())];
         topIdx = prefs.getInt("top", 0);
         dockIdx = prefs.getInt("dock", 0);
@@ -160,6 +158,12 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     @Override
     protected void onResume() {
         super.onResume();
+        int settingsVersion = Prefs.version(this);
+        if (prefs.getInt("settings_version", 0) != settingsVersion) {
+            prefs.edit().putInt("settings_version", settingsVersion).apply();
+            recreate();
+            return;
+        }
         updateClock();
         updateWifi();
         if (inputs.isOpen()) inputs.close();
@@ -295,7 +299,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         root.setBackgroundColor(0xFF000000);
         root.setClipChildren(false);
 
-        boolean useWallpaper = getResources().getBoolean(R.bool.use_wallpaper);
+        boolean useWallpaper = Prefs.useWallpaper(this);
         if (useWallpaper) {
             findWallpapers();
             for (int i = 0; i < 2; i++) {
@@ -325,15 +329,6 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
             View scrim = new View(this);
             scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, scrimColors));
             root.addView(scrim, new FrameLayout.LayoutParams(-1, -1));
-            // blur ramp over the top and bottom bands; the middle region shows the photo sharp
-            veil = new WallpaperVeil(this, backdrop,
-                    getResources().getInteger(R.integer.wallpaper_clear_top),
-                    getResources().getInteger(R.integer.wallpaper_clear_bottom),
-                    getResources().getInteger(R.integer.wallpaper_blur_fade),
-                    getResources().getBoolean(R.bool.wallpaper_progressive),
-                    true,
-                    getResources().getInteger(R.integer.wallpaper_spot_feather));
-            root.addView(veil, new FrameLayout.LayoutParams(-1, -1));
         }
 
         content = new FrameLayout(this);
@@ -406,10 +401,6 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         plp.topMargin = dp(36);
         plp.rightMargin = side;
         content.addView(pillRow, plp);
-
-        // cache the spot-frost rects for the clock block and the pill row in screen coords;
-        // double-post so the first layout pass has measured them (same pattern as applyFocus)
-        if (veil != null) tl.post(() -> tl.post(this::ensureSpots));
 
         // follower counters, right-aligned under the pills (display only, never focused)
         socialIds[0] = getString(R.string.youtube_channel).trim();
@@ -523,7 +514,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         Calendar now = Calendar.getInstance();
         int h = now.get(Calendar.HOUR_OF_DAY);
         String part = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 17 ? "Good afternoon" : "Good evening";
-        String name = getString(R.string.greeting_name).trim();
+        String name = Prefs.greetingName(this).trim();
         greeting.setText(name.isEmpty() ? part : part + ", " + name);
         boolean h24 = DateFormat.is24HourFormat(this);
         clock.setText(DateFormat.format(h24 ? "H:mm" : "h:mm", now));
@@ -627,7 +618,8 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     private void scheduleWallpaper() {
         main.removeCallbacks(nextWallpaper);
         if (wallpapers.size() < 2 || wpViews[0] == null) return;
-        int secs = Math.max(5, getResources().getInteger(R.integer.wallpaper_seconds));
+        int secs = Prefs.wallpaperSeconds(this);
+        if (secs <= 0) return;   // rotation off
         main.postDelayed(nextWallpaper, secs * 1000L);
     }
 
@@ -636,9 +628,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         io.execute(() -> {
             if (backdrop != null) backdrop.rebuild();
             main.post(() -> {
-                ensureSpots();
                 if (highlight != null) highlight.invalidate();
-                if (veil != null) veil.refresh();
             });
         });
     }
@@ -820,7 +810,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
             } else if (topIdx == 3) {
                 picker.open(wallpapers, this::showPickedWallpaper);
             } else {
-                launch(new Intent(Settings.ACTION_SETTINGS));
+                launch(new Intent(this, LauncherSettingsActivity.class));
             }
         } else if (zone == Zone.DOCK && dockIdx < dockAdapter.getItemCount()) {
             launch(AppRepo.launchIntent(getPackageManager(), dockAdapter.apps.get(dockIdx)));
@@ -838,36 +828,6 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
     }
 
     // ---------------------------------------------------------------- focus rendering
-
-    /** Screen rect of a view, padded with the frost feather around it (see WallpaperVeil). */
-    private RectF frostRect(View v, int pad) {
-        int[] w = new int[2], r = new int[2];
-        v.getLocationInWindow(w);
-        veil.getLocationInWindow(r);
-        float x = w[0] - r[0], y = w[1] - r[1];
-        return new RectF(x - pad, y - pad, x + v.getWidth() + pad, y + v.getHeight() + pad);
-    }
-
-    /** Measure the frosted panels behind the clock block and the pill row, once laid out. */
-    private void ensureSpots() {
-        if (veil == null || spotBase != null || topTexts.getWidth() == 0) return;
-        RectF[] base = new RectF[2];
-        base[0] = frostRect(topTexts, dp(24));
-        base[1] = frostRect(pillRow, dp(16));
-        spotBase = base;
-        applySpotShift(0);
-    }
-
-    /** Spots live in screen coords; when the content scrolls they follow the same shift. */
-    private void applySpotShift(float shift) {
-        if (veil == null || spotBase == null) return;
-        RectF[] moved = new RectF[spotBase.length];
-        for (int i = 0; i < moved.length; i++) {
-            RectF s = spotBase[i];
-            moved[i] = new RectF(s.left, s.top - shift, s.right, s.bottom - shift);
-        }
-        veil.setSpots(moved);
-    }
 
     private void applyFocus(boolean animate) {
         prefs.edit().putInt("zone", zone.ordinal()).putInt("top", topIdx)
@@ -889,7 +849,6 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         if (animate) content.animate().translationY(-shift).setDuration(380)
                 .setInterpolator(new DecelerateInterpolator(2f)).start();
         else content.setTranslationY(-shift);
-        applySpotShift(shift);
 
         // dock title + glow follow the dock selection
         if (dockAdapter.getItemCount() > 0 && dockIdx != lastTitleApp) {
