@@ -41,24 +41,49 @@ final class AppRepo {
 
     static Result load(Context c) {
         PackageManager pm = c.getPackageManager();
+        List<App> visible = visible(c, pm);
+
+        Result r = new Result();
+        for (String pkg : Prefs.dockPackages(c)) {
+            App match = null;
+            for (App a : visible) {
+                if (a.pkg.equals(pkg)) {
+                    match = a;
+                    break;
+                }
+            }
+            if (match != null) {
+                visible.remove(match);
+                r.dock.add(match);
+            }
+        }
+        r.grid.addAll(visible);
+
+        for (App a : r.dock) render(pm, a);
+        for (App a : r.grid) render(pm, a);
+        return r;
+    }
+
+    /** Every launchable app (dock included), hidden ones left out, sorted by label. */
+    static List<App> all(Context c) {
+        PackageManager pm = c.getPackageManager();
+        List<App> apps = visible(c, pm);
+        for (App a : apps) render(pm, a);
+        return apps;
+    }
+
+    private static List<App> visible(Context c, PackageManager pm) {
         Map<String, App> byPkg = new LinkedHashMap<>();
         collect(pm, byPkg, Intent.CATEGORY_LEANBACK_LAUNCHER, true);
         collect(pm, byPkg, Intent.CATEGORY_LAUNCHER, false);
         byPkg.remove(c.getPackageName());
         Set<String> hidden = new HashSet<>(Prefs.hiddenPackages(c));
 
-        Result r = new Result();
-        for (String pkg : Prefs.dockPackages(c)) {
-            App a = byPkg.remove(pkg);
-            if (a != null) r.dock.add(a);
-        }
-        for (App a : byPkg.values()) if (!hidden.contains(a.pkg)) r.grid.add(a);
+        List<App> out = new ArrayList<>();
+        for (App a : byPkg.values()) if (!hidden.contains(a.pkg)) out.add(a);
         Collator col = Collator.getInstance();
-        Collections.sort(r.grid, (x, y) -> col.compare(x.label, y.label));
-
-        for (App a : r.dock) render(pm, a);
-        for (App a : r.grid) render(pm, a);
-        return r;
+        Collections.sort(out, (x, y) -> col.compare(x.label, y.label));
+        return out;
     }
 
     private static void collect(PackageManager pm, Map<String, App> out, String category, boolean leanback) {

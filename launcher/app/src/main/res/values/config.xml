@@ -52,6 +52,10 @@
         <item>/sdcard/Wallpapers</item>
     </string-array>
 
+    <!-- Top-right "Apps" button that opens the all-apps drawer with its search box. false hides
+         the button; the home grid still lists every app. -->
+    <bool name="show_apps_pill">true</bool>
+
     <!-- Top-right "Wallpaper" button that opens a remote-friendly picker (D-pad: choose photo,
          OK shows it now, BACK closes). false hides the button. -->
     <bool name="show_wallpaper_pill">true</bool>

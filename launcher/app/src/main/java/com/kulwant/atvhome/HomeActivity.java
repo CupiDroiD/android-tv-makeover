@@ -49,9 +49,11 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
     private enum Zone { TOP, DOCK, GRID }
 
-    private static final int PILLS = 4;
+    private static final int PILLS = 5;
     /** pills the top zone shows/config depends: 3, or 4 with the Wallpaper button */
     private int pillCount;
+    /** what each visible pill does: "apps", "inputs", "wifi", "settings" or "wallpaper" */
+    private final String[] pillActions = new String[PILLS];
     /** apps per row, dock and grid (config.xml: columns) */
     private int COLS;
 
@@ -113,6 +115,7 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         if (zone == Zone.TOP) zone = Zone.DOCK;   // come back to apps, not the buttons
 
         buildUi();
+        if (topIdx >= pillCount) topIdx = 0;   // pill row changed (Apps button added)
         setContentView(root);
 
         // wallpapers from the configured folders and USB drives need storage read permission;
@@ -380,18 +383,26 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
         tl.addView(date, dlp);
         content.addView(tl, at(W / 2, -2, side, dp(34)));
 
-        // pills: Inputs, Wi-Fi, Settings (+ Wallpaper when enabled in config.xml)
+        // pills: Apps, Inputs, Wi-Fi, Settings (+ Wallpaper when enabled in config.xml)
         pillRow = new LinearLayout(this);
         pillRow.setOrientation(LinearLayout.HORIZONTAL);
-        pills[0] = pill(R.drawable.ic_input, "Inputs");
-        pills[1] = pill(R.drawable.ic_wifi, "Wi-Fi");
-        wifiText = (TextView) ((ViewGroup) pills[1]).getChildAt(1);
-        pills[2] = pill(R.drawable.ic_settings, null);
-        pillCount = 3;
-        if (getResources().getBoolean(R.bool.show_wallpaper_pill)) {
-            pills[3] = pill(R.drawable.ic_wallpaper, "Wallpaper");
-            pillCount = 4;
+        int pc = 0;
+        if (getResources().getBoolean(R.bool.show_apps_pill)) {
+            pills[pc] = pill(R.drawable.ic_apps, "Apps");
+            pillActions[pc++] = "apps";
         }
+        pills[pc] = pill(R.drawable.ic_input, "Inputs");
+        pillActions[pc++] = "inputs";
+        pills[pc] = pill(R.drawable.ic_wifi, "Wi-Fi");
+        wifiText = (TextView) ((ViewGroup) pills[pc]).getChildAt(1);
+        pillActions[pc++] = "wifi";
+        pills[pc] = pill(R.drawable.ic_settings, null);
+        pillActions[pc++] = "settings";
+        if (getResources().getBoolean(R.bool.show_wallpaper_pill)) {
+            pills[pc] = pill(R.drawable.ic_wallpaper, "Wallpaper");
+            pillActions[pc++] = "wallpaper";
+        }
+        pillCount = pc;
         for (int i = 0; i < pillCount; i++) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(36));
             if (i > 0) lp.leftMargin = dp(10);
@@ -801,13 +812,16 @@ public class HomeActivity extends Activity implements Wallpapers.Listener {
 
     private void activate() {
         if (zone == Zone.TOP) {
-            if (topIdx == 0) {
+            String action = pillActions[topIdx];
+            if ("apps".equals(action)) {
+                launch(new Intent(this, AllAppsActivity.class));
+            } else if ("inputs".equals(action)) {
                 int[] loc = new int[2];
-                pills[0].getLocationInWindow(loc);
-                inputs.open(loc[0], loc[1] + pills[0].getHeight() + dp(8));
-            } else if (topIdx == 1) {
+                pills[topIdx].getLocationInWindow(loc);
+                inputs.open(loc[0], loc[1] + pills[topIdx].getHeight() + dp(8));
+            } else if ("wifi".equals(action)) {
                 launch(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            } else if (topIdx == 3) {
+            } else if ("wallpaper".equals(action)) {
                 picker.open(wallpapers, this::showPickedWallpaper);
             } else {
                 launch(new Intent(this, LauncherSettingsActivity.class));

@@ -39,6 +39,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AllAppsActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|orientation|uiMode" />
+
         <service android:name=".PhoneService" android:exported="false" />
         <service android:name=".WatchdogService" android:process=":watchdog" android:exported="false" />
         <activity

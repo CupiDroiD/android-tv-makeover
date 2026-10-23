@@ -45,7 +45,8 @@ launcher, control it from your phone, and add a fast live TV app for Indian chan
 reversible.
 
 - **Launcher:** your photos fading behind the home screen, a dock of 5 apps, a 5-column app grid,
-  clock and greeting, YouTube / Instagram / Facebook follower counters, HDMI/AV switcher.
+  clock and greeting, an all-apps drawer with a search box you type into from your phone,
+  YouTube / Instagram / Facebook follower counters, HDMI/AV switcher.
 - **Phone remote:** a web page served by the TV. Trackpad, keyboard, volume, apps, inputs, sending
   photos to the TV, and Siri shortcuts. Works in Safari on iPhone and in any phone browser.
 - **Live TV app:** Indian channels in categories, 1080p only, smooth on a 1 GB TV.
@@ -186,6 +187,9 @@ trust.
 - Up from the dock goes to the top buttons; Down from the dock scrolls into the app grid.
 - Back returns to the dock. Home while already home also returns to the dock.
 - Inputs opens HDMI / AV / Live TV; it switches through Android's TV input framework.
+- Apps opens the all-apps drawer: a full grid plus a search box. The TV keyboard never opens there;
+  type on the phone page's keyboard (Return opens the first match), or just start typing while a
+  tile is focused. Back clears the search, then closes the drawer.
 - It remembers the last tile you were on.
 
 ## Changing the launcher
@@ -195,7 +199,9 @@ All in `launcher/app/src/main/res/values/config.xml`:
 - **Dock:** `dock_packages`, package names left to right. Find one with
   `tools/tv shell "pm list packages | grep -i <name>"`.
 - **Hide an app from the grid:** add it to `hidden_packages`.
-- **Apps per row:** `columns` (3 to 6; 5 by default), for the dock and the grid.
+- **Apps per row:** `columns` (3 to 6; 5 by default), for the dock, the grid and the all-apps drawer.
+- **Apps button:** `show_apps_pill` `false` hides the top-right Apps button (the home grid still
+  lists every app); `show_wallpaper_pill` does the same for Wallpaper.
 - **Greeting name:** `greeting_name` (empty for just "Good evening").
 - **Wallpapers:** add photos from the phone page (easiest), or put 1280×720 images named
   `wallpaper_1.jpg`, `wallpaper_2.jpg`, … in `launcher/app/src/main/res/drawable-nodpi/` before
